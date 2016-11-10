@@ -38,4 +38,4 @@ CMakeCache.txt
 Makefile
 CTestTestfile.cmake
 cmake_install.cmake
-Testing
+*_test
