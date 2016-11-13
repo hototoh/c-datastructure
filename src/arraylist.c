@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "log.h"
 #include "arraylist.h"
 
 #define INITIAL_LEN 8
@@ -14,11 +15,17 @@
 
 ArrayList* createArrayList() {
     ArrayList* array = (ArrayList*) malloc(sizeof(ArrayList));
-    if (array == NULL) goto fail;
+    if (array == NULL) {
+        log_perror("failed to allocate memory.");
+        goto fail;
+    }
     
     void** data = (void**) calloc(INITIAL_LEN, sizeof(void*));
-    if (data == NULL) goto fail1;
-
+    if (data == NULL) {
+        log_perror("failed to allocate memory.");
+        goto fail1;
+    }
+        
     array->_allocated = INITIAL_LEN;
     array->length = 0;
     array->data = data;
@@ -33,7 +40,10 @@ bool arrayListResize(ArrayList* array, int n) {
     if (n <= array->_allocated) return false;
     
     void** data = (void**) realloc(array->data, SIZEOF_ARRAY_LIST(n));
-    if (data == NULL) goto fail;
+    if (data == NULL) {
+        log_perror("failed to reallocate memory.");
+        goto fail;
+    }
     
     array->_allocated = n;
     array->data = data;
@@ -65,7 +75,10 @@ bool arrayListInsert(ArrayList* array, int index, void* data) {
 }
 
 bool arrayListRemove(ArrayList* array, int index) {
-    if (index < 0 || array->length <= index) return false;    
+    if (index < 0 || array->length <= index) {
+        log_error("Out of range access.");
+        return false;
+    }
     
     int len = --array->length;
     for (int i = index; i < len; ++i) {
