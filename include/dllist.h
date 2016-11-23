@@ -60,4 +60,8 @@ static inline bool prependDLList(DLList* list, void* entry) {
     return insertAfterDLList(list, &list->head, entry);
 }
 
+static inline bool popDLList(DLList* list) {
+    return removeDLList(list, 0);
+}
+
 #endif
