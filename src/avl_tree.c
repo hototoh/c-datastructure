@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <errno.h>
 
+#include "log.h"
 #include "arraylist.h"
 #include "dllist.h"
 #include "avl_tree.h"
@@ -74,11 +75,11 @@ ArrayList* destroyAllNodesAVLTree(AVLTree* tree, bool quiet) {
     if (!quiet) arr = createArrayList();
     
     DLList* stack = createEmptyDLList();
-    while(cur != NULL && sizeDLList(stack) > 0) {
+    while(cur != NULL || sizeDLList(stack) > 0) {
         for(; cur != NULL; cur = cur->left) prependDLList(stack, cur);
 
-        AVLTreeNode* prev = cur;
-        cur = cur->right;
+        AVLTreeNode* prev = popDLList(stack);
+        cur = prev->right;
 
         void* data = destroyAVLTreeNode(prev);
         if (!quiet) arrayListPush(arr, data);        
@@ -87,54 +88,65 @@ ArrayList* destroyAllNodesAVLTree(AVLTree* tree, bool quiet) {
     return arr;
 }
 
+ArrayList* destroyAVLTree(AVLTree* tree) {
+    return destroyAllNodesAVLTree(tree, false);
+}
+
 void destroyQuietlyAVLTree(AVLTree* tree) {
     destroyAllNodesAVLTree(tree, true);    
 }
 
-#define ROTATE_AVL_TREE(sub_root, dir1, dir2) ({                    \
-    AVLTreeNode* new_sub_root = sub_root->dir1;                     \
-    sub_root->dir1 = new_sub_root->dir2;                            \
-    new_sub_root->dir2 = sub_root;                                  \
-    new_sub_root->parent = sub_root->parent;                        \
-    sub_root->parent = new_sub_root;                                \
-    sub_root->height--;                                             \
-    new_sub_root->height = maxChildHeightAVLTreeNode(new_sub_root); \
-    new_sub_root; })
+#define UPDATE_NODE_HEIGHT(node) ({                             \
+            node->height = maxChildHeightAVLTreeNode(node) + 1; \
+        })
 
-#define UPDATE_PARENT_NODE(tree, root, dir1, dir2) ({               \
-            AVLTreeNode* parent = root->parent;                     \
-            if (parent == NULL) { tree->root = root; }              \
-            else {                                                  \
-                if (parent->dir1 == root->dir2)                     \
-                { parent->dir1 = root; }                            \
-                else if (parent->dir2 == root->dir2)                \
-                { parent->dir2 = root; }                            \
-                else assert(false);                                 \
-                parent->height = maxChildHeightAVLTreeNode(parent); \
-            }                                                       \
+#define ROTATE_AVL_TREE(sub_root, dir1, dir2) ({                        \
+            AVLTreeNode* new_sub_root = sub_root->dir1;                 \
+            sub_root->dir1 = new_sub_root->dir2;                        \
+            new_sub_root->dir2 = sub_root;                              \
+            new_sub_root->parent = sub_root->parent;                    \
+            sub_root->parent = new_sub_root;                            \
+            UPDATE_NODE_HEIGHT(sub_root);                               \
+            UPDATE_NODE_HEIGHT(new_sub_root);                           \
+            new_sub_root; })
+
+#define UPDATE_PARENT_NODE(tree, node, dir1, dir2) ({                   \
+            AVLTreeNode* parent = node->parent;                         \
+            if (parent == NULL) { tree->root = node; }                  \
+            else {                                                      \
+                if (parent->dir1 == node->dir2)                         \
+                { parent->dir1 = node; }                                \
+                else if (parent->dir2 == node->dir2)                    \
+                { parent->dir2 = node; }                                \
+                else assert(false);                                     \
+                parent->height = UPDATE_NODE_HEIGHT(parent);            \
+            }                                                           \
         })
 
 static AVLTreeNode* leftRotateAVLTree(AVLTree* tree, AVLTreeNode* root) {
     AVLTreeNode* new_root = ROTATE_AVL_TREE(root, right, left);
-    UPDATE_PARENT_NODE(tree, root, right, left);
+    UPDATE_PARENT_NODE(tree, new_root, right, left);
     return new_root;
 }
 
 static AVLTreeNode* rightRotateAVLTree(AVLTree* tree, AVLTreeNode* root) {
     AVLTreeNode* new_root = ROTATE_AVL_TREE(root, left, right);
-    UPDATE_PARENT_NODE(tree, root, left, right);
+    UPDATE_PARENT_NODE(tree, new_root, left, right);
     return new_root;
 }
 
 static void* balanceSubAVLTree(AVLTree* tree, AVLTreeNode* root) {
+    UPDATE_NODE_HEIGHT(root);
     int gap = diffHeightAVLTreeNode(root);
+    debug("cur:%d height:%d l:%d r:%d",  *(int*) root->data, root->height,
+          leftHeighAVLTreeNode(root), rightHeighAVLTreeNode(root));
     if (abs(gap) <= 1) return root;
     if (abs(gap) != 2) assert(false);  // invalid tree structure
         
     bool isLeftNode = gap == 2;
     AVLTreeNode* sub_root = isLeftNode ? root->left: root->right;
-    bool isLeftSubNode = diffHeightAVLTreeNode(sub_root) > 0;
-        
+    bool isLeftSubNode = diffHeightAVLTreeNode(sub_root) >= 0;
+
     AVLTreeNode* new_root = NULL;
     if (isLeftNode && isLeftSubNode) {
         new_root = rightRotateAVLTree(tree, root);
@@ -147,7 +159,8 @@ static void* balanceSubAVLTree(AVLTree* tree, AVLTreeNode* root) {
         rightRotateAVLTree(tree, sub_root);
         new_root = leftRotateAVLTree(tree, root);
     }
-    
+    debug("new_cur:%d height:%d l:%d r:%d",  *(int*) new_root->data, new_root->height,
+           leftHeighAVLTreeNode(new_root), rightHeighAVLTreeNode(new_root));    
     return new_root;
 }
 
@@ -186,7 +199,7 @@ bool insertAVLTree(AVLTree* tree, void* entry) {
         }
         node->parent = prev;
 
-        prev->height = maxChildHeightAVLTreeNode(prev) + 1;
+        prev->height = maxChildHeightAVLTreeNode(prev) + 1;        
     }
 
     balanceAVLTree(tree, node);
@@ -266,13 +279,13 @@ bool containsAVLTree(AVLTree* tree, void* entry) {
 ArrayList* toArrayAVLTree(AVLTree* tree) {
     AVLTreeNode* cur = tree->root;
     if (cur == NULL) return NULL;
-
-    ArrayList* arr = createArrayList();
     
+    ArrayList* arr = createArrayList();    
     DLList* stack = createEmptyDLList();
-    while(cur != NULL && sizeDLList(stack) > 0) {
+    while(cur != NULL || sizeDLList(stack) > 0) {
         for(; cur != NULL; cur = cur->left) prependDLList(stack, cur);
 
+        cur = popDLList(stack);
         arrayListPush(arr, cur->data);        
         cur = cur->right;
     }

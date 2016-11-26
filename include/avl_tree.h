@@ -26,9 +26,9 @@ typedef struct AVLTree {
 
 AVLTree* createAVLTree(comparatorAVLTree comparator);
 
-ArrayList* destroyAllNodesAVLTree(AVLTree* tree, bool quiet);
+ArrayList* destroyAVLTree(AVLTree* tree);
 
-void** destroyAVLTree(AVLTree* tree);
+void destroyQuietlyAVLTree(AVLTree* tree);
 
 bool insertAVLTree(AVLTree* tree, void* entry);
 
