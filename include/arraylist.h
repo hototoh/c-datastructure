@@ -15,6 +15,11 @@ static inline int arrayListLength(ArrayList* array) {
     return array->length;
 }
 
+static inline void* arrayListDataAt(ArrayList* array, int index) {
+    if (index < 0 || array->length <= index) return NULL;
+    return array->data[index];
+}
+
 static inline void** arrayListData(ArrayList* array) {
     return array->data;
 }
