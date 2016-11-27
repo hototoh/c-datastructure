@@ -11,6 +11,8 @@
  */
 typedef int (*comparatorAVLTree)(void*, void*);
 
+typedef void (*printAVLTreeNode)(void*);
+
 typedef struct AVLTreeNode {
     int height;
     void* data;
@@ -37,5 +39,7 @@ void* removeAVLTree(AVLTree* tree, void* entry);
 bool containsAVLTree(AVLTree* tree, void* entry);
     
 ArrayList* toArrayAVLTree(AVLTree* tree);
+
+void dumpInOrderAVLTree(AVLTree* tree, printAVLTreeNode printer);
 
 #endif

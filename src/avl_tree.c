@@ -15,12 +15,12 @@
 #include "dllist.h"
 #include "avl_tree.h"
 
-#define CHILD_HEIGTH_AVL_TREE_NODE(node, member) \
-    node->member != NULL ? node->member->height : -1;
-
 static inline int max(int a, int b) {
     return a > b ? a : b;
 }
+
+#define CHILD_HEIGTH_AVL_TREE_NODE(node, member) \
+    node->member != NULL ? node->member->height : -1;
 
 static inline int leftHeighAVLTreeNode(AVLTreeNode* node) {
     return CHILD_HEIGTH_AVL_TREE_NODE(node, left);
@@ -77,13 +77,13 @@ ArrayList* destroyAllNodesAVLTree(AVLTree* tree, bool quiet) {
     DLList* stack = createEmptyDLList();
     while(cur != NULL || sizeDLList(stack) > 0) {
         for(; cur != NULL; cur = cur->left) prependDLList(stack, cur);
-
         AVLTreeNode* prev = popDLList(stack);
         cur = prev->right;
 
         void* data = destroyAVLTreeNode(prev);
         if (!quiet) arrayListPush(arr, data);        
     }
+    destroyDLList(stack);
     free(tree);    
     return arr;
 }
@@ -103,6 +103,7 @@ void destroyQuietlyAVLTree(AVLTree* tree) {
 #define ROTATE_AVL_TREE(sub_root, dir1, dir2) ({                        \
             AVLTreeNode* new_sub_root = sub_root->dir1;                 \
             sub_root->dir1 = new_sub_root->dir2;                        \
+            if (sub_root->dir1 != NULL) { sub_root->dir1->parent = sub_root; } \
             new_sub_root->dir2 = sub_root;                              \
             new_sub_root->parent = sub_root->parent;                    \
             sub_root->parent = new_sub_root;                            \
@@ -138,8 +139,6 @@ static AVLTreeNode* rightRotateAVLTree(AVLTree* tree, AVLTreeNode* root) {
 static void* balanceSubAVLTree(AVLTree* tree, AVLTreeNode* root) {
     UPDATE_NODE_HEIGHT(root);
     int gap = diffHeightAVLTreeNode(root);
-    debug("cur:%d height:%d l:%d r:%d",  *(int*) root->data, root->height,
-          leftHeighAVLTreeNode(root), rightHeighAVLTreeNode(root));
     if (abs(gap) <= 1) return root;
     if (abs(gap) != 2) assert(false);  // invalid tree structure
         
@@ -159,14 +158,11 @@ static void* balanceSubAVLTree(AVLTree* tree, AVLTreeNode* root) {
         rightRotateAVLTree(tree, sub_root);
         new_root = leftRotateAVLTree(tree, root);
     }
-    debug("new_cur:%d height:%d l:%d r:%d",  *(int*) new_root->data, new_root->height,
-           leftHeighAVLTreeNode(new_root), rightHeighAVLTreeNode(new_root));    
     return new_root;
 }
 
 static void balanceAVLTree(AVLTree* tree, AVLTreeNode* node) {
     AVLTreeNode* cur = node;
-
     while(cur != NULL) {
         cur = balanceSubAVLTree(tree, cur);
         cur = cur->parent;
@@ -213,27 +209,34 @@ already_exist:
  * This function returns an edges node whose data moved to the place where
  * removed data exists.
  */
-void removeNodeAVLTree(AVLTree* tree, AVLTreeNode* node) {
+AVLTreeNode* removeNodeAVLTree(AVLTree* tree, AVLTreeNode* node) {
     int gap = diffHeightAVLTreeNode(node);
     bool left = gap >= 0;
     AVLTreeNode* prev = node;
     AVLTreeNode* cur = left ? node->left : node->right;
     while(cur != NULL) {
         prev = cur;
-        if (left) cur = cur->right;
-        else cur = cur->left;        
+        cur = left ? cur->right : cur->left;        
     }
     
-    
     node->data = prev->data;
-    if (left) cur = prev->left;
-    else cur = prev->right;
+    cur = left ? prev->left : prev->right;
     prev->data = cur != NULL ? cur->data : NULL;
-    
-    if (node == NULL && cur == NULL) tree->root = NULL;
 
-    if (cur != NULL) destroyAVLTreeNode(cur);
-    else destroyAVLTreeNode(prev);            
+    AVLTreeNode* removed_node = cur != NULL ? cur : prev;
+    AVLTreeNode* edge = removed_node->parent;
+    if (edge != NULL) {        
+        if (edge->right == removed_node) {
+            edge->right = NULL;
+        } else if (edge->left == removed_node) {
+            edge->left = NULL;
+        } else assert(false);
+    } else {
+        tree->root = NULL;
+    }
+
+    destroyAVLTreeNode(removed_node);
+    return edge;
 }
 
 void* removeAVLTree(AVLTree* tree, void* entry) {
@@ -253,11 +256,10 @@ void* removeAVLTree(AVLTree* tree, void* entry) {
 
     return NULL;
 remove_node:
-    
+
     ret = cur->data;
-    removeNodeAVLTree(tree, cur);
-    balanceAVLTree(tree, cur);
-    
+    AVLTreeNode* node = removeNodeAVLTree(tree, cur);
+    balanceAVLTree(tree, node);
     return ret;
 }
 
@@ -289,5 +291,21 @@ ArrayList* toArrayAVLTree(AVLTree* tree) {
         arrayListPush(arr, cur->data);        
         cur = cur->right;
     }
+    destroyDLList(stack);
     return arr;
+}
+
+void dumpInOrderAVLTree(AVLTree* tree, printAVLTreeNode printer) {
+    AVLTreeNode* cur = tree->root;
+    if (cur == NULL) return ;
+    
+    DLList* stack = createEmptyDLList();
+    while(cur != NULL || sizeDLList(stack) > 0) {
+        for(; cur != NULL; cur = cur->left) prependDLList(stack, cur);
+
+        cur = popDLList(stack);
+        printer(cur);
+        cur = cur->right;
+    }
+    destroyDLList(stack);        
 }
