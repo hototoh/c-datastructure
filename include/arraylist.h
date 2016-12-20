@@ -1,6 +1,8 @@
 #ifndef ARRAYLIST_H
 #define ARRAYLIST_H
 
+#include <stdbool.h>
+
 typedef struct ArrayList {
     int _allocated;
     int length;    

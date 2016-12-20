@@ -8,6 +8,8 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "-g3 -Og -pg")
 set(CMAKE_C_FLAGS_MINSIZEREL "-Os -s -DNDEBUG -march=native")
 
 set(CMAKE_MACOSX_RPATH "./")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_definitions("-I./include")
 
 enable_testing()
 

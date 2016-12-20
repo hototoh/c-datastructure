@@ -1,6 +1,7 @@
 #ifndef DLLIST_H
 #define DLLIST_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct DLListHead {

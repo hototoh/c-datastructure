@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "arraylist.h"
+
 /**
  * @return: 
  *  0 : when both are same
